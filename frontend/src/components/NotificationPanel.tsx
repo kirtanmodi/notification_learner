@@ -82,7 +82,7 @@ export function NotificationPanel({ onAction }: Props) {
   };
 
   return (
-    <div className="bg-slate-deep/80 backdrop-blur-sm border border-slate-mid rounded-xl p-6">
+    <div className="bg-slate-deep/80 backdrop-blur-sm border border-slate-mid rounded-xl p-6" data-tour="notification-control">
       <h2 className="text-xl font-bold text-neon-cyan mb-4 flex items-center gap-2">
         <span className="text-2xl">📬</span>
         Notification Control
@@ -142,6 +142,7 @@ export function NotificationPanel({ onAction }: Props) {
             onClick={handleSchedule}
             disabled={loading}
             className="w-full bg-neon-cyan/20 hover:bg-neon-cyan/30 text-neon-cyan border border-neon-cyan/50 rounded-lg py-3 px-4 font-semibold transition-all disabled:opacity-50"
+            data-tour="schedule-btn"
           >
             {loading ? '...' : '📅 Schedule Notification'}
           </button>
@@ -160,10 +161,18 @@ export function NotificationPanel({ onAction }: Props) {
 
       {lastDecision && (
         <div className="mt-4 p-3 bg-midnight/40 rounded-lg border border-slate-mid">
-          <p className="text-soft-white/50 text-xs uppercase tracking-wider mb-1">Decision Type</p>
-          <p className={`font-semibold ${lastDecision.isExploration ? 'text-neon-amber' : 'text-neon-cyan'}`}>
-            {lastDecision.isExploration ? '🎲 Exploration' : '🎯 Exploitation'}
-          </p>
+          <div className="flex justify-between items-center">
+            <div>
+              <p className="text-soft-white/50 text-xs uppercase tracking-wider mb-1">Decision Type</p>
+              <p className={`font-semibold ${lastDecision.isExploration ? 'text-neon-amber' : 'text-neon-cyan'}`}>
+                {lastDecision.isExploration ? '🎲 Exploration' : '🎯 Exploitation'}
+              </p>
+            </div>
+            <div className="text-right">
+              <p className="text-soft-white/50 text-xs uppercase tracking-wider mb-1">Confidence</p>
+              <p className="text-soft-white font-mono font-semibold">{lastDecision.confidence.toFixed(1)}%</p>
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -65,7 +65,7 @@ export function EventLog({ refreshTrigger }: Props) {
   };
 
   return (
-    <div className="bg-slate-deep/80 backdrop-blur-sm border border-slate-mid rounded-xl p-6">
+    <div className="bg-slate-deep/80 backdrop-blur-sm border border-slate-mid rounded-xl p-6" data-tour="event-log">
       <h2 className="text-xl font-bold text-neon-lime flex items-center gap-2 mb-4">
         <span className="text-2xl">📜</span>
         Event Log

@@ -1,4 +1,4 @@
-import type { ScheduleResponse, EventResponse, ScoresResponse, Decision, Notification, Event } from './types';
+import type { ScheduleResponse, EventResponse, ScoresResponse, Decision, Notification, Event, RegretResponse } from './types';
 
 const API_BASE = '/api';
 
@@ -43,3 +43,6 @@ export async function getPendingNotification(): Promise<{ notification: (Notific
   return fetchJson('/pending');
 }
 
+export async function getRegret(limit: number = 50): Promise<RegretResponse> {
+  return fetchJson(`/regret?limit=${limit}`);
+}

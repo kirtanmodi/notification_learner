@@ -6,11 +6,14 @@ import {
   getNotification,
   getPendingNotification,
   updateNotificationStatus,
-  createEvent
+  createEvent,
+  getTotalDecisions,
+  getRegretHistory,
+  getRegretStats
 } from './db';
 import { processEvent } from './learner';
-import { scheduleNotification } from './scheduler';
-import { BUCKETS } from './config';
+import { scheduleNotification, getUCBScoresMap } from './scheduler';
+import { BUCKETS, CONFIG } from './config';
 
 const router = Router();
 
@@ -30,11 +33,13 @@ router.post('/schedule', (_req: Request, res: Response) => {
   res.json({
     notification: result.notification,
     decision: {
+      id: result.decision.id,
       bucket: result.decision.bucket,
       bucketLabel: bucket?.label,
       isExploration: result.decision.is_exploration,
+      confidence: result.decision.confidence,
       explanation: result.decision.explanation,
-      scores: result.decision.scores_snapshot
+      ucbScores: result.decision.scores_snapshot
     }
   });
 });
@@ -72,7 +77,7 @@ router.post('/event', (req: Request, res: Response) => {
   
   updateNotificationStatus(notificationId, status, action === 'open' ? now.toISOString() : undefined);
   
-  const { reward, newScore } = processEvent(notification.bucket, eventType, timeToOpenMs);
+  const { reward, newScore, regret } = processEvent(notification.bucket, eventType, timeToOpenMs, notificationId);
   
   const event = createEvent(eventType, notification.bucket, notificationId, timeToOpenMs, reward);
   
@@ -82,23 +87,35 @@ router.post('/event', (req: Request, res: Response) => {
     event,
     reward,
     newScore,
+    regret,
     bucket: notification.bucket,
     bucketLabel: bucket?.label,
     timeToOpenMs,
-    message: `${bucket?.label} bucket score updated: ${newScore.toFixed(3)} (reward: ${reward > 0 ? '+' : ''}${reward})`
+    message: `${bucket?.label} bucket score updated: ${newScore.toFixed(3)} (reward: ${reward > 0 ? '+' : ''}${reward}, regret: ${regret.toFixed(1)})`
   });
 });
 
 router.get('/scores', (_req: Request, res: Response) => {
   const scores = getAllScores();
+  const totalDecisions = getTotalDecisions();
+  const ucbScoresMap = getUCBScoresMap();
   
   const enrichedScores = scores.map(s => {
     const bucket = BUCKETS.find(b => b.id === s.bucket);
     const openRate = s.total_sent > 0 ? (s.total_opened / s.total_sent * 100).toFixed(1) : '0.0';
+    const confidence = totalDecisions > 0 ? (s.reward_count / totalDecisions * 100) : 0;
+    
+    const bonus = s.reward_count > 0 
+      ? CONFIG.UCB_C * Math.sqrt(Math.log(Math.max(totalDecisions, 1)) / s.reward_count)
+      : Infinity;
+    
     return {
       ...s,
       label: bucket?.label,
       openRate: parseFloat(openRate),
+      confidence: parseFloat(confidence.toFixed(1)),
+      ucbScore: ucbScoresMap[s.bucket],
+      uncertaintyBonus: bonus === Infinity ? null : parseFloat(bonus.toFixed(3)),
       explorationRate: s.total_sent > 0 
         ? parseFloat((s.exploration_count / s.total_sent * 100).toFixed(1)) 
         : 0
@@ -109,16 +126,23 @@ router.get('/scores', (_req: Request, res: Response) => {
     totalSent: acc.totalSent + s.total_sent,
     totalOpened: acc.totalOpened + s.total_opened,
     explorationCount: acc.explorationCount + s.exploration_count,
-    exploitationCount: acc.exploitationCount + s.exploitation_count
-  }), { totalSent: 0, totalOpened: 0, explorationCount: 0, exploitationCount: 0 });
+    exploitationCount: acc.exploitationCount + s.exploitation_count,
+    totalRewardCount: acc.totalRewardCount + s.reward_count
+  }), { totalSent: 0, totalOpened: 0, explorationCount: 0, exploitationCount: 0, totalRewardCount: 0 });
   
   res.json({
     buckets: enrichedScores,
     totals: {
       ...totals,
+      totalDecisions,
       overallOpenRate: totals.totalSent > 0 
         ? parseFloat((totals.totalOpened / totals.totalSent * 100).toFixed(1))
         : 0
+    },
+    config: {
+      ucbC: CONFIG.UCB_C,
+      learningRate: CONFIG.LEARNING_RATE,
+      decay: CONFIG.DECAY
     }
   });
 });
@@ -159,6 +183,31 @@ router.get('/decision', (_req: Request, res: Response) => {
   });
 });
 
+router.get('/regret', (req: Request, res: Response) => {
+  const limit = parseInt(req.query.limit as string) || 50;
+  const history = getRegretHistory(limit);
+  const stats = getRegretStats();
+  
+  const enrichedHistory = history.map(entry => {
+    const bucket = BUCKETS.find(b => b.id === entry.chosen_bucket);
+    return {
+      ...entry,
+      bucketLabel: bucket?.label
+    };
+  });
+  
+  res.json({
+    history: enrichedHistory,
+    stats: {
+      avgRegret: parseFloat(stats.avgRegret.toFixed(3)),
+      totalEntries: stats.totalEntries,
+      recentTrend: parseFloat(stats.recentTrend.toFixed(1)),
+      trendDirection: stats.recentTrend < -5 ? 'improving' : stats.recentTrend > 5 ? 'degrading' : 'stable'
+    },
+    bestPossibleReward: CONFIG.REWARDS.QUICK_OPEN
+  });
+});
+
 router.get('/pending', (_req: Request, res: Response) => {
   const pending = getPendingNotification();
   
@@ -177,4 +226,3 @@ router.get('/pending', (_req: Request, res: Response) => {
 });
 
 export default router;
-
