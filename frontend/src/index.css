@@ -1,0 +1,24 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
+  --color-midnight: #0f0f1a;
+  --color-slate-deep: #1a1a2e;
+  --color-slate-mid: #252542;
+  --color-neon-cyan: #00f0ff;
+  --color-neon-magenta: #ff00aa;
+  --color-neon-lime: #a3ff00;
+  --color-neon-amber: #ffaa00;
+  --color-soft-white: #e8e8f0;
+}
+
+body {
+  font-family: var(--font-sans);
+  background: linear-gradient(135deg, var(--color-midnight) 0%, var(--color-slate-deep) 50%, #16162a 100%);
+  min-height: 100vh;
+  color: var(--color-soft-white);
+}
+
+#root {
+  min-height: 100vh;
+}
